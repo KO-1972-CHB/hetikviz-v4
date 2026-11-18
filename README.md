@@ -69,8 +69,7 @@ A mentések az adott böngészőben és webcímen maradnak.
 ## Vercel Preview
 
 A `vercel.json` ugyanazon a webcímen teszi elérhetővé a Vite-tal összeállított
-felületet és az Express API-t. Külön tesztprojekthez a `v4.0-preview` ágról
-indíts Preview telepítést. Node.js 22.x ajánlott. A repó
+felületet és az Express API-t. A `hetikviz-v4` tároló kiadási ága a `main`. A Vercel-projektben ezt az ágat használd. Node.js 22.x ajánlott. A repó
 `npm ci`, `npx vite build` és `dist` beállításait használd.
 
 1. A Vercel Marketplace-ben adj Redis adatbázist a tesztprojekthez.
