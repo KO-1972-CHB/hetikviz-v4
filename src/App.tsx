@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, lazy, Suspense } from 'react';
 import { CefrLevel, QuizPackage, UserQuizAttempt } from './types';
 import { INITIAL_QUIZZES } from './data/quizzes';
 import {
@@ -22,12 +22,19 @@ import { LevelSelector } from './components/LevelSelector';
 import { QuizCard } from './components/QuizCard';
 import { QuizResult } from './components/QuizResult';
 import { WeeklyArchiveModal } from './components/WeeklyArchiveModal';
-import { TeacherStudioModal } from './components/TeacherStudioModal';
-import { DiagnosticModal } from './components/DiagnosticModal';
 import { AdminLoginModal } from './components/AdminLoginModal';
 import { publishedQuizId } from './utils/quizReview';
 import { ChangelogModal } from './components/ChangelogModal';
 import { MessageCircle, ExternalLink, Calendar, Users, Sparkles, BookOpen, Lock, ShieldCheck, FileText } from 'lucide-react';
+
+const TeacherStudioModal = lazy(() => import('./components/TeacherStudioModal')
+  .then(({ TeacherStudioModal }) => ({ default: TeacherStudioModal })));
+const DiagnosticModal = lazy(() => import('./components/DiagnosticModal')
+  .then(({ DiagnosticModal }) => ({ default: DiagnosticModal })));
+
+function ModalLoading() {
+  return <p role="status" className="fixed bottom-4 right-4 z-50 rounded-xl bg-[#12354a] px-4 py-2 text-sm text-white">Betöltés…</p>;
+}
 
 export default function App() {
   const currentWeekNumber = useMemo(() => getCurrentWeekNumber(), []);
@@ -48,7 +55,7 @@ export default function App() {
 
   const handleLoginSuccess = () => {
     setIsAdmin(true);
-    setIsTeacherStudioOpen(true);
+    openTeacherStudio();
   };
 
   const handleLogoutAdmin = async () => {
@@ -133,6 +140,19 @@ export default function App() {
   const [isArchiveOpen, setIsArchiveOpen] = useState(false);
   const [isTeacherStudioOpen, setIsTeacherStudioOpen] = useState(false);
   const [isDiagnosticOpen, setIsDiagnosticOpen] = useState(false);
+  const [teacherStudioRequested, setTeacherStudioRequested] = useState(false);
+  const [diagnosticRequested, setDiagnosticRequested] = useState(false);
+
+  function openTeacherStudio() {
+    setTeacherStudioRequested(true);
+    setIsTeacherStudioOpen(true);
+  }
+
+  function openDiagnostic() {
+    setDiagnosticRequested(true);
+    setIsDiagnosticOpen(true);
+  }
+
   const [isChangelogOpen, setIsChangelogOpen] = useState(false);
   const [hiddenQuizIds, setHiddenQuizIds] = useState<string[]>(() => getHiddenQuizIds());
 
@@ -375,8 +395,8 @@ export default function App() {
         score={score}
         onOpenPractice={() => { setSavedQuestions(readSavedQuestions()); setPracticeError(''); setPracticeOpen(true); }}
         onOpenArchive={() => setIsArchiveOpen(true)}
-        onOpenTeacherStudio={() => setIsTeacherStudioOpen(true)}
-        onOpenDiagnostic={() => setIsDiagnosticOpen(true)}
+        onOpenTeacherStudio={openTeacherStudio}
+        onOpenDiagnostic={openDiagnostic}
         onGoHome={handleGoHome}
         isAdmin={isAdmin}
         onLogoutAdmin={handleLogoutAdmin}
@@ -389,7 +409,7 @@ export default function App() {
           <LevelSelector
             currentLevel={currentLevel}
             onSelectLevel={handleSelectLevel}
-            onOpenDiagnostic={() => setIsDiagnosticOpen(true)}
+            onOpenDiagnostic={openDiagnostic}
             quizCountsByLevel={quizCountsByLevel}
           />
         )}
@@ -427,7 +447,7 @@ export default function App() {
             saveError={practiceError}
             onSelectAnotherLevel={() => {
               resetQuizState();
-              setIsDiagnosticOpen(true);
+              openDiagnostic();
             }}
             onOpenArchive={() => setIsArchiveOpen(true)}
           />
@@ -452,7 +472,7 @@ export default function App() {
 
             {isAdmin && (
               <button
-                onClick={() => setIsTeacherStudioOpen(true)}
+                onClick={openTeacherStudio}
                 className="py-1.5 px-3 rounded-lg bg-slate-900 text-white font-bold text-xs hover:bg-slate-800 transition shrink-0 flex items-center space-x-1 cursor-pointer"
               >
                 <Sparkles className="w-3.5 h-3.5 text-amber-300" />
@@ -480,7 +500,7 @@ export default function App() {
               Heti Kvízek
             </button>
             <button
-              onClick={() => setIsDiagnosticOpen(true)}
+              onClick={openDiagnostic}
               className="hover:text-white transition cursor-pointer"
             >
               Szintfelmérő
@@ -503,7 +523,7 @@ export default function App() {
             {isAdmin ? (
               <div className="flex items-center space-x-2">
                 <button
-                  onClick={() => setIsTeacherStudioOpen(true)}
+                  onClick={openTeacherStudio}
                   className="hover:text-amber-300 transition text-amber-400 font-bold flex items-center space-x-1 cursor-pointer"
                 >
                   <Sparkles className="w-3.5 h-3.5" />
@@ -546,15 +566,19 @@ export default function App() {
         onTogglePinQuiz={handleTogglePinQuiz}
       />
 
-      <TeacherStudioModal
-        isOpen={isAdmin && isTeacherStudioOpen}
-        onClose={() => setIsTeacherStudioOpen(false)}
-        onQuizCreatedOrSelected={handleCustomQuizCreated}
-        currentWeekNumber={currentWeekNumber}
-        onQuizDeleted={() => setAllQuizzes(getAllQuizzes())}
-        onPublished={() => setAllQuizzes(getAllQuizzes())}
-        onOpenChangelog={() => setIsChangelogOpen(true)}
-      />
+      {teacherStudioRequested && (
+        <Suspense fallback={isAdmin && isTeacherStudioOpen ? <ModalLoading /> : null}>
+          <TeacherStudioModal
+            isOpen={isAdmin && isTeacherStudioOpen}
+            onClose={() => setIsTeacherStudioOpen(false)}
+            onQuizCreatedOrSelected={handleCustomQuizCreated}
+            currentWeekNumber={currentWeekNumber}
+            onQuizDeleted={() => setAllQuizzes(getAllQuizzes())}
+            onPublished={() => setAllQuizzes(getAllQuizzes())}
+            onOpenChangelog={() => setIsChangelogOpen(true)}
+          />
+        </Suspense>
+      )}
 
       {practiceOpen && (
         <SavedPracticeModal
@@ -565,11 +589,15 @@ export default function App() {
         />
       )}
 
-      <DiagnosticModal
-        isOpen={isDiagnosticOpen}
-        onClose={() => setIsDiagnosticOpen(false)}
-        onSelectLevel={handleSelectLevel}
-      />
+      {diagnosticRequested && (
+        <Suspense fallback={isDiagnosticOpen ? <ModalLoading /> : null}>
+          <DiagnosticModal
+            isOpen={isDiagnosticOpen}
+            onClose={() => setIsDiagnosticOpen(false)}
+            onSelectLevel={handleSelectLevel}
+          />
+        </Suspense>
+      )}
 
       <AdminLoginModal
         isOpen={isAdminLoginOpen}
@@ -581,7 +609,7 @@ export default function App() {
         isOpen={isChangelogOpen}
         onClose={() => setIsChangelogOpen(false)}
         isAdmin={isAdmin}
-        onOpenTeacherStudio={() => setIsTeacherStudioOpen(true)}
+        onOpenTeacherStudio={openTeacherStudio}
       />
     </div>
   );
